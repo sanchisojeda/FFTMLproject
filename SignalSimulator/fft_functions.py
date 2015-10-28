@@ -396,7 +396,7 @@ def get_figure(time_cad, flux_cad, bools, inds, x, freq, power_rel, power, n, re
     ax1.set_xticks(np.arange(np.round(np.amin(time_cad),-1), np.round(np.amax(time_cad),-1)+1, 5.0))
     ax1.set_xlim([np.amin(time_cad), np.amax(time_cad)])
     delta = np.amax(flux_cad) - np.amin(flux_cad)
-    ax1.set_ylim([1 - 1.5 * delta, 1. + .5 * delta])
+    ax1.set_ylim([np.min(flux_cad)-0.1 * delta, np.max(flux_cad)+ .1 * delta])
     ax1.grid(True)
 
     ## Original FFT (bottom left)
