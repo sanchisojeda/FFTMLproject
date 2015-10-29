@@ -80,28 +80,6 @@ def multiclassflux(t, opt, x):
         return flux + A1*np.sin(2.0*np.pi*phase1) + A2*np.sin(2.0*np.pi*phase2)
 
 
-def constraint_index_finder(constraint, y):
-    """ 
-    Parameters:
-    constraint = the number times mean of y
-    y =  y values -- power
-    Return value: 
-    val_indexes = array with indexes where y[indexes] output values greater than constraint * mean value
-    What it does:
-    The mean of the array is multiplied with the constraint, and the index of any value in y (power) 
-    that is above constraint*mean value is stored to an array --> That array is then returned
-    """
-    return np.where(y >= constraint*np.median(y))[0]
-    
-def max_peaks(index_arr, arr):
-    """ Returns an array of the indexes where the indexes indicate where the peaks are"""
-    return [index_arr[i] for i in range(1, len(index_arr)-1) if arr[index_arr[i-1]]<arr[index_arr[i]] and arr[index_arr[i+1]]<arr[index_arr[i]]]
-    
-def limit_applier(arr, lower_limit = 1.0, upper_limit = 10.0):
-    """ Takes an array and a lower and upper limit and returns an array of the indices that 
-        are below the lower limit or higher than the upper limit -- it is the delete_arr"""
-    return np.append(np.where(arr < lower_limit)[0], np.where(arr > upper_limit)[0])
-
 ################################################################################
 ############################# read in data #####################################
 ################################################################################
@@ -246,6 +224,51 @@ def fft_normalize(freq, power, n, bin_sz, cut_peak, knot1, knot2):
 ############################### Peak Limits ####################################
 ################################################################################   
 ################################################################################
+
+def constraint_index_finder(constraint, y):
+    """ 
+    Parameters:
+    constraint = the number times mean of y
+    y =  y values -- power
+    Return value: 
+    val_indexes = array with indexes where y[indexes] output values greater than constraint * mean value
+    What it does:
+    The mean of the array is multiplied with the constraint, and the index of any value in y (power) 
+    that is above constraint*mean value is stored to an array --> That array is then returned
+    """
+    return np.where(y >= constraint*np.median(y))[0]
+    
+def max_peaks(index_arr, arr):
+    """ Returns an array of the indexes where the indexes indicate where the peaks are"""
+    return [index_arr[i] for i in range(1, len(index_arr)-1) if arr[index_arr[i-1]]<arr[index_arr[i]] and arr[index_arr[i+1]]<arr[index_arr[i]]]
+    
+def limit_applier(arr, lower_limit = 1.0, upper_limit = 10.0):
+    """ Takes an array and a lower and upper limit and returns an array of the indices that 
+        are below the lower limit or higher than the upper limit -- it is the delete_arr"""
+    return np.append(np.where(arr < lower_limit)[0], np.where(arr > upper_limit)[0])
+
+def getSNR(sigma, flux):
+    newchi2 = np.sum( (flux-np.median(flux))**2)/sigma**2
+    oldchi2 = len(flux)
+    if newchi2 <= oldchi2:
+        return 0
+    else:
+        return np.sqrt(newchi2-oldchi2)
+
+def featureextraction(x, freq, power, power_rel):
+    lower_freq, upper_freq, numharms = x
+
+    dfreq = freq[0] # distance between frequencies
+    indexlow = np.floor(lower_freq/dfreq)#position of the low limit
+    indexhigh = np.floor(upper_freq/dfreq) #position of the upper limit
+
+    indexmax = np.argmax(power[indexlow:indexhigh+1]) + indexlow
+
+    amplitudes = [np.max(power[indexmax*i-10:indexmax*i+10]) for i in np.arange(1, numharms+1)]    
+    amplitudes_rel = [np.max(power_rel[indexmax*i-10:indexmax*i+10]) for i in np.arange(1, numharms+1)]    
+
+
+    return 1.0/freq[indexmax], np.append(np.mean(amplitudes_rel), amplitudes/np.mean(amplitudes))
 
 def peak_finder(x, freq, power_rel):
     
@@ -401,7 +424,7 @@ def get_figure(time_cad, flux_cad, bools, inds, x, freq, power_rel, power, n, re
 
     ## Original FFT (bottom left)
     ax2 = fig.add_subplot(223)
-    ax2.plot(freq, power, 'black',linewidth = .75)
+    ax2.plot(freq, np.log(power), 'black',linewidth = .75)
     if has_peaks:
         ax2.scatter(freq[peak_indexes], power[peak_indexes], s=30, c="black")
         ax2.set_title("Numfreq = " + str(len(peak_indexes)), fontsize = 16)
@@ -410,7 +433,7 @@ def get_figure(time_cad, flux_cad, bools, inds, x, freq, power_rel, power, n, re
     ax2.set_xlabel("Frequency (cycles/day)")
     ax2.set_ylabel("Amplitude")
     ax2.set_xlim([0,upper_freq])
-    ax2.set_ylim(bottom=0)
+    ax2.set_ylim(min(np.log(power))-0.5, max(np.log(power)))
     ax2.set_xticks(np.arange(upper_freq))
     ax2.grid(True)
     
